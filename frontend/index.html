@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IELTS 写作批改系统</title>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- ====== 登录页 ====== -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-bg"></div>
+  <div class="auth-card">
+    <div class="auth-logo">🎓</div>
+    <h1 class="auth-title">雅思写作批改系统</h1>
+    <p class="auth-sub">三层评分 · 官方评分标准 · AI 精批</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">登录</button>
+      <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">注册</button>
+    </div>
+    <div id="login-form" class="auth-form">
+      <input id="login-u" class="input" placeholder="用户名" onkeydown="if(event.key==='Enter')login()"/>
+      <input id="login-p" class="input" type="password" placeholder="密码" onkeydown="if(event.key==='Enter')login()"/>
+      <button class="btn btn-primary btn-block" onclick="login()">登 录</button>
+    </div>
+    <div id="register-form" class="auth-form hidden">
+      <input id="reg-u" class="input" placeholder="用户名（至少2位）" onkeydown="if(event.key==='Enter')register()"/>
+      <input id="reg-p" class="input" type="password" placeholder="密码（至少6位）" onkeydown="if(event.key==='Enter')register()"/>
+      <input id="reg-email" class="input" placeholder="邮箱（选填）"/>
+      <input id="reg-invite" class="input" placeholder="邀请码"/>
+      <button class="btn btn-primary btn-block" onclick="register()">注 册</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 主应用 ====== -->
+<div id="app" class="app hidden">
+  <aside class="sidebar">
+    <div class="sidebar-logo">🎓</div>
+    <div class="sidebar-title">雅思作文批改</div>
+    <nav class="sidebar-nav">
+      <a href="#grading" class="nav-item" id="nav-grading">📝 批改</a>
+      <a href="#history" class="nav-item" id="nav-history">📋 历史</a>
+      <a href="#profile" class="nav-item" id="nav-profile">👤 个人</a>
+      <a href="#admin" class="nav-item hidden" id="nav-admin">⚙️ 管理</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="credit-display" id="credit-pill">满分币 —</div>
+      <a href="#" class="nav-item logout" onclick="logout();return false;">🚪 退出</a>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- 批改 -->
+    <section id="view-grading" class="view">
+      <div class="page-header">
+        <h1>提交批改</h1>
+        <p class="muted">粘贴题目和作文，AI 考官将从 16 个子维度逐层评分</p>
+      </div>
+      <div class="grading-layout">
+        <div class="grading-left">
+          <div class="field-group">
+            <label class="field-label">作文类型</label>
+            <div class="type-toggle">
+              <button class="type-btn active" data-type="task2" onclick="selectType('task2')">大作文 Task 2</button>
+              <button class="type-btn" data-type="task1" onclick="selectType('task1')">小作文 Task 1</button>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">题目</label>
+            <textarea id="g-question" class="input" rows="3" placeholder="粘贴题目…"></textarea>
+          </div>
+          <div class="field-group hidden" id="g-upload-wrap">
+            <label class="field-label">图片（流程图 / 地图 / 图表）</label>
+            <div class="upload-area" id="g-upload-zone">
+              <span id="g-upload-text">📎 点击或拖拽上传图片</span>
+              <input type="file" id="g-image" accept="image/*" style="display:none"/>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">考生作文</label>
+            <textarea id="g-essay" class="input essay-input" rows="16" placeholder="粘贴考生作文…"></textarea>
+          </div>
+        </div>
+        <div class="grading-right">
+          <div class="info-card">
+            <div class="info-icon">💡</div>
+            <h3>评分流程</h3>
+            <ol class="info-list">
+              <li>预检：字数、相关性、安全检查</li>
+              <li>图片识别：视觉模型描述图片内容</li>
+              <li>子维度评分：4 大维度 × 16 子维度</li>
+              <li>维度合成：综合子维度给出维度分</li>
+              <li>总分：四维平均 + 官方取整规则</li>
+            </ol>
+          </div>
+          <div class="info-card cost-card">
+            <div class="cost-amount">1</div>
+            <div class="cost-label">满分币 / 次</div>
+          </div>
+          <button class="btn btn-primary btn-block btn-lg" id="g-submit" onclick="submitGrading()">提交批改</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 报告 -->
+    <section id="view-report" class="view hidden">
+      <div class="page-header">
+        <a href="#grading" class="back-btn">← 返回</a>
+      </div>
+      <div id="report-body"></div>
+    </section>
+
+    <!-- 历史 -->
+    <section id="view-history" class="view hidden">
+      <div class="page-header">
+        <h1>历史记录</h1>
+        <p class="muted">查看所有批改记录和评分结果</p>
+      </div>
+      <div id="history-body"></div>
+    </section>
+
+    <!-- 个人 -->
+    <section id="view-profile" class="view hidden">
+      <div class="page-header"><h1>个人中心</h1></div>
+      <div class="profile-grid">
+        <div class="card"><h3>账户信息</h3>
+          <div class="profile-row"><span class="muted">用户名</span><b id="pf-username"></b></div>
+          <div class="profile-row"><span class="muted">邮箱</span><span id="pf-email"></span></div>
+          <div class="profile-row"><span class="muted">角色</span><span id="pf-role"></span></div>
+          <div class="profile-row"><span class="muted">满分币</span><b class="accent" id="pf-credits"></b></div>
+        </div>
+        <div class="card"><h3>修改邮箱</h3>
+          <input id="pf-email-input" class="input" placeholder="新邮箱（留空清除）" style="margin-top:8px"/>
+          <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="updateEmail()">保存</button>
+        </div>
+        <div class="card"><h3>修改密码</h3>
+          <input id="pf-old-p" class="input" type="password" placeholder="原密码" style="margin-top:8px"/>
+          <input id="pf-new-p" class="input" type="password" placeholder="新密码（至少6位）" style="margin-top:8px"/>
+          <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="changePassword()">修改密码</button>
+        </div>
+        <div class="card"><h3>兑换满分币</h3>
+          <input id="pf-redeem" class="input" placeholder="输入兑换码" style="margin-top:8px"/>
+          <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="redeemCode()">兑换</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 管理 -->
+    <section id="view-admin" class="view hidden">
+      <div class="page-header"><h1>管理后台</h1></div>
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="models" onclick="switchAdminTab('models')">模型管理</button>
+        <button class="admin-tab" data-tab="users" onclick="switchAdminTab('users')">用户管理</button>
+        <button class="admin-tab" data-tab="grading" onclick="switchAdminTab('grading')">作文管理</button>
+        <button class="admin-tab" data-tab="invites" onclick="switchAdminTab('invites')">邀请码</button>
+        <button class="admin-tab" data-tab="redeems" onclick="switchAdminTab('redeems')">兑换码</button><button class="admin-tab" data-tab="settings" onclick="switchAdminTab('settings')">⚙️ 系统设置</button>
+      </div>
+      <div id="admin-models" class="admin-panel">
+        <div class="card">
+          <h3>拉取 & 配置模型</h3>
+          <div class="admin-input-row" style="margin-top:10px">
+            <input id="m-base" class="input" value="http://host.docker.internal:8000/v1" placeholder="Base URL"/>
+            <input id="m-key" class="input" value="sk-temporarychat" placeholder="API Key (sk-...)"/>
+            <button class="btn btn-primary btn-sm" onclick="pullModels()">拉取</button>
+          </div>
+          <div id="models-body" style="margin-top:12px"></div>
+        </div>
+      </div>
+      <div id="admin-users" class="admin-panel hidden">
+        <div class="card"><h3>用户管理</h3><div id="users-body" style="margin-top:12px"></div></div>
+      </div>
+      <div id="admin-grading" class="admin-panel hidden">
+        <div class="card"><h3>所有批改记录</h3><div id="admin-grading-body" style="margin-top:12px"></div></div>
+      </div>
+      <div id="admin-invites" class="admin-panel hidden">
+        <div class="card"><h3>邀请码管理</h3>
+          <div class="admin-input-row" style="margin-top:10px">
+            <input id="invite-count" class="input" type="number" value="1" min="1" max="50" style="width:80px"/>
+            <button class="btn btn-primary btn-sm" onclick="genInvites()">生成邀请码</button>
+          </div>
+          <div id="invites-body" style="margin-top:12px"></div>
+        </div>
+      </div>
+      <div id="admin-redeems" class="admin-panel hidden">
+        <div class="card"><h3>兑换码管理</h3>
+          <div class="admin-input-row" style="margin-top:10px">
+            <input id="redeem-count" class="input" type="number" value="1" min="1" max="50" style="width:80px"/>
+            <input id="redeem-credits" class="input" type="number" value="1" min="1" max="100" style="width:80px"/>
+            <button class="btn btn-primary btn-sm" onclick="genRedeems()">生成兑换码</button>
+          </div>
+          <div id="redeems-body" style="margin-top:12px"></div>
+        </div>
+      </div>
+      
+      <div id="admin-settings" class="admin-panel hidden">
+        <div class="card"><h3>⚙️ 系统设置</h3><div id="settings-body" style="margin-top:12px"></div></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="/echarts.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
